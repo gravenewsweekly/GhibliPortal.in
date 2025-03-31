@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - GhibliPortal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">GhibliPortal</div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="about.html">About</a></li>
+                <li><a href="terms.html">Terms</a></li>
+                <li class="ghibli-now"><a href="ghibli-now.html">Ghibli Now</a></li>
+                <li id="authLink"><a href="signup.html">Sign Up</a></li>
+                <li><a href="privacy.html">Privacy</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="edit-profile-container">
+        <h1>Edit Your Profile</h1>
+        
+        <div id="authMessage" class="auth-message"></div>
+        
+        <form id="editProfileForm" class="hidden">
+            <div class="form-group">
+                <label for="realName">Real Name*</label>
+                <input type="text" id="realName" name="realName" required>
+                <span id="realNameError" class="error-message"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number*</label>
+                <input type="tel" id="phone" name="phone" required>
+                <span id="phoneError" class="error-message"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="bio">Short Bio (Max 200 characters)</label>
+                <textarea id="bio" name="bio" maxlength="200" rows="4"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="reason">Reason for Joining (Optional)</label>
+                <textarea id="reason" name="reason" rows="3"></textarea>
+            </div>
+            
+            <button type="submit" class="save-btn">Save Changes</button>
+        </form>
+    </main>
+
+    <script>
+        // JSONBin.io configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // DOM elements
+        const authLink = document.getElementById('authLink');
+        const authMessage = document.getElementById('authMessage');
+        const editProfileForm = document.getElementById('editProfileForm');
+        const realNameInput = document.getElementById('realName');
+        const phoneInput = document.getElementById('phone');
+        const bioInput = document.getElementById('bio');
+        const reasonInput = document.getElementById('reason');
+        const realNameError = document.getElementById('realNameError');
+        const phoneError = document.getElementById('phoneError');
+
+        // Current user data
+        let currentUser = null;
+        let userDataFromDB = null;
+
+        // Check if user is logged in and authorized
+        async function checkAuthorization() {
+            const userData = localStorage.getItem('ghibliUser');
+            
+            if (!userData) {
+                showAuthMessage('You must be logged in to edit your profile. Redirecting to login page...', 'error');
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 3000);
+                return false;
+            }
+            
+            currentUser = JSON.parse(userData);
+            
+            try {
+                // Fetch user data from database
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch user data');
+                
+                const data = await response.json();
+                userDataFromDB = data.record.users.find(user => user.username === currentUser.username);
+                
+                if (!userDataFromDB) {
+                    showAuthMessage('User account not found. Please sign up again.', 'error');
+                    localStorage.removeItem('ghibliUser');
+                    setTimeout(() => {
+                        window.location.href = 'signup.html';
+                    }, 3000);
+                    return false;
+                }
+                
+                // Update UI for authorized user
+                updateUIForAuthorizedUser();
+                return true;
+            } catch (error) {
+                console.error('Authorization error:', error);
+                showAuthMessage('Error verifying your account. Please try again later.', 'error');
+                return false;
+            }
+        }
+
+        // Update UI for authorized user
+        function updateUIForAuthorizedUser() {
+            // Update navigation
+            authLink.innerHTML = `
+                <a href="javascript:void(0)" id="usernameLink">${currentUser.username}</a>
+            `;
+            
+            // Set up username dropdown
+            document.getElementById('usernameLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                const dropdown = document.getElementById('userDropdown');
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+            });
+            
+            // Show form
+            editProfileForm.classList.remove('hidden');
+            
+            // Populate form with existing data if available
+            if (userDataFromDB) {
+                if (userDataFromDB.realName) realNameInput.value = userDataFromDB.realName;
+                if (userDataFromDB.phone) phoneInput.value = userDataFromDB.phone;
+                if (userDataFromDB.bio) bioInput.value = userDataFromDB.bio;
+                if (userDataFromDB.reason) reasonInput.value = userDataFromDB.reason;
+            }
+        }
+
+        // Show authorization message
+        function showAuthMessage(message, type) {
+            authMessage.textContent = message;
+            authMessage.className = `auth-message ${type}`;
+        }
+
+        // Validate phone number
+        function validatePhone(phone) {
+            const regex = /^\d{10,15}$/;
+            return regex.test(phone);
+        }
+
+        // Validate real name (only letters and spaces)
+        function validateRealName(name) {
+            const regex = /^[a-zA-Z\s]{2,50}$/;
+            return regex.test(name);
+        }
+
+        // Save profile data
+        async function saveProfileData(profileData) {
+            try {
+                // First get existing data
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch existing data');
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                // Find and update current user
+                const updatedUsers = users.map(user => {
+                    if (user.username === currentUser.username) {
+                        return { ...user, ...profileData };
+                    }
+                    return user;
+                });
+                
+                // Update the bin
+                const updateResponse = await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ users: updatedUsers })
+                });
+                
+                return updateResponse.ok;
+            } catch (error) {
+                console.error('Error saving profile data:', error);
+                return false;
+            }
+        }
+
+        // Form submission handler
+        editProfileForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const realName = realNameInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const bio = bioInput.value.trim();
+            const reason = reasonInput.value.trim();
+            
+            // Reset error messages
+            realNameError.textContent = '';
+            phoneError.textContent = '';
+            
+            // Validate inputs
+            let isValid = true;
+            
+            if (!realName) {
+                realNameError.textContent = 'Real name is required';
+                isValid = false;
+            } else if (!validateRealName(realName)) {
+                realNameError.textContent = 'Please enter a valid name (letters and spaces only)';
+                isValid = false;
+            }
+            
+            if (!phone) {
+                phoneError.textContent = 'Phone number is required';
+                isValid = false;
+            } else if (!validatePhone(phone)) {
+                phoneError.textContent = 'Please enter a valid phone number (10-15 digits)';
+                isValid = false;
+            }
+            
+            if (!isValid) return;
+            
+            // Prepare profile data
+            const profileData = {
+                realName,
+                phone,
+                bio: bio || '',
+                reason: reason || '',
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Save profile data
+            const saved = await saveProfileData(profileData);
+            
+            if (saved) {
+                showAuthMessage('Profile updated successfully! Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+            } else {
+                showAuthMessage('Failed to update profile. Please try again.', 'error');
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function() {
+            const isAuthorized = await checkAuthorization();
+            
+            if (isAuthorized) {
+                // Set up logout button if it exists
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        localStorage.removeItem('ghibliUser');
+                        window.location.href = 'login.html';
+                    });
+                }
+            }
+        });
+    </script>
+
+    <div id="userDropdown" class="dropdown-content">
+        <a href="edit-profile.html">Edit Profile</a>
+        <a href="login.html" id="logoutBtn">Log Out</a>
+    </div>
+</body>
+</html>
