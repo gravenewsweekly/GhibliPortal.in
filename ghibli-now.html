@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghibli Now - GhibliPortal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">GhibliPortal</div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="about.html">About</a></li>
+                <li><a href="terms.html">Terms</a></li>
+                <li class="ghibli-now"><a href="ghibli-now.html">Ghibli Now</a></li>
+                <li id="authLink"><a href="signup.html">Sign Up</a></li>
+                <li><a href="privacy.html">Privacy</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="ghibli-now-container">
+        <div id="authMessage" class="auth-message"></div>
+        
+        <div id="contentForRegisteredUsers" class="hidden">
+            <h1>Welcome to Ghibli Now, <span id="usernameDisplay"></span>!</h1>
+            <p class="thank-you">Thank you for choosing our platform to access exclusive Studio Ghibli content.</p>
+            <p class="contact-info">For any issues, contact Ghibli artist support: 8103356828</p>
+            
+            <div class="payment-process">
+                <h2>Complete Your Payment</h2>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Payment Amount</h3>
+                        <p>Total: ₹5 (for unlimited access)</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Payment Method</h3>
+                        <p>Click the button below to verify your payment</p>
+                        <button id="verifyPaymentBtn" class="verify-pay-btn">
+                            Verify Payment
+                        </button>
+                        <p class="note">Note: After payment via UPI to 8103356828, click verify</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="userDropdown" class="dropdown-content">
+        <a href="edit-profile.html">Edit Profile</a>
+        <a href="login.html" id="logoutBtn">Log Out</a>
+    </div>
+
+    <script>
+        // JSONBin.io configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        const SUPPORT_NUMBER = '8103356828';
+
+        // DOM elements
+        const authLink = document.getElementById('authLink');
+        const authMessage = document.getElementById('authMessage');
+        const contentForRegisteredUsers = document.getElementById('contentForRegisteredUsers');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const verifyPaymentBtn = document.getElementById('verifyPaymentBtn');
+
+        // Current user data
+        let currentUser = null;
+        let userDataFromDB = null;
+
+        // Check if user is registered
+        async function checkUserRegistration() {
+            const userData = localStorage.getItem('ghibliUser');
+            
+            if (!userData) {
+                showAuthMessage('You need to be a registered user to access Ghibli Now. Redirecting to signup page...', 'error');
+                setTimeout(() => {
+                    window.location.href = 'signup.html';
+                }, 3000);
+                return false;
+            }
+            
+            currentUser = JSON.parse(userData);
+            
+            try {
+                // Verify user exists in database
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch user data');
+                
+                const data = await response.json();
+                userDataFromDB = data.record.users.find(user => user.username === currentUser.username);
+                
+                if (!userDataFromDB) {
+                    showAuthMessage('User account not found. Please sign up again.', 'error');
+                    localStorage.removeItem('ghibliUser');
+                    setTimeout(() => {
+                        window.location.href = 'signup.html';
+                    }, 3000);
+                    return false;
+                }
+                
+                // User is registered and verified
+                showContentForRegisteredUser();
+                return true;
+            } catch (error) {
+                console.error('Verification error:', error);
+                showAuthMessage('Error verifying your account. Please try again later.', 'error');
+                return false;
+            }
+        }
+
+        // Show content for registered users
+        function showContentForRegisteredUser() {
+            // Update navigation
+            authLink.innerHTML = `
+                <a href="javascript:void(0)" id="usernameLink">${currentUser.username}</a>
+            `;
+            
+            // Set up username dropdown
+            document.getElementById('usernameLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                const dropdown = document.getElementById('userDropdown');
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+            });
+            
+            // Display username
+            usernameDisplay.textContent = currentUser.username;
+            
+            // Show content
+            contentForRegisteredUsers.classList.remove('hidden');
+            
+            // Set up payment verification
+            verifyPaymentBtn.addEventListener('click', async function() {
+                await verifyPayment();
+            });
+        }
+
+        // Verify payment
+        async function verifyPayment() {
+            try {
+                // Check if payment exists for user
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch payment data');
+                
+                const data = await response.json();
+                const user = data.record.users.find(u => u.username === currentUser.username);
+                
+                // Check if payment exists (in a real app, you'd verify transaction ID)
+                if (user && user.paymentVerified) {
+                    window.location.href = `thank-you.html?username=${encodeURIComponent(currentUser.username)}`;
+                } else {
+                    showAuthMessage('Payment not found. Please complete payment to 8103356828 first. Or visit privacy policy page', 'error');
+                }
+            } catch (error) {
+                console.error('Payment verification error:', error);
+                showAuthMessage('Error verifying payment. Please try again later.', 'error');
+            }
+        }
+
+        // Show authorization message
+        function showAuthMessage(message, type) {
+            authMessage.textContent = message;
+            authMessage.className = `auth-message ${type}`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkUserRegistration();
+            
+            // Set up logout button if it exists
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    localStorage.removeItem('ghibliUser');
+                    window.location.href = 'login.html';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
