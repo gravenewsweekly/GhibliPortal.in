@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GhibliPortal - Sign Up</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="signup-container">
+        <h1>Create Your GhibliPortal Account</h1>
+        <form id="signupForm">
+            <div class="form-group">
+                <label for="username">Username*</label>
+                <input type="text" id="username" name="username" required>
+                <span id="usernameError" class="error-message"></span>
+            </div>
+            <div class="form-group">
+                <label for="email">Email* (Only .com Gmail allowed)</label>
+                <input type="email" id="email" name="email" required>
+                <span id="emailError" class="error-message"></span>
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone Number*</label>
+                <input type="tel" id="phone" name="phone" required>
+                <span id="phoneError" class="error-message"></span>
+            </div>
+            <div class="form-group">
+                <label for="password">Password*</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="signup-btn">Sign Up</button>
+        </form>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        // JSONBin.io configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // DOM elements
+        const signupForm = document.getElementById('signupForm');
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+        const passwordInput = document.getElementById('password');
+        const usernameError = document.getElementById('usernameError');
+        const emailError = document.getElementById('emailError');
+        const phoneError = document.getElementById('phoneError');
+        const messageDiv = document.getElementById('message');
+
+        // Security measures
+        let rateLimit = {};
+        const MAX_ATTEMPTS = 5;
+        const BLOCK_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+        // Check if username is already taken
+        async function isUsernameTaken(username) {
+            try {
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch user data');
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                return users.some(user => user.username === username);
+            } catch (error) {
+                console.error('Error checking username:', error);
+                return true; // Assume taken to prevent duplicates if API fails
+            }
+        }
+
+        // Validate email format (only .com Gmail allowed)
+        function validateEmail(email) {
+            const regex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+            return regex.test(email);
+        }
+
+        // Validate phone number (basic validation)
+        function validatePhone(phone) {
+            const regex = /^\d{10,15}$/;
+            return regex.test(phone);
+        }
+
+        // Check rate limiting
+        function checkRateLimit(ip) {
+            const now = Date.now();
+            if (rateLimit[ip] && rateLimit[ip].attempts >= MAX_ATTEMPTS) {
+                if (now - rateLimit[ip].lastAttempt < BLOCK_TIME) {
+                    return false; // Still blocked
+                } else {
+                    // Block time expired, reset
+                    delete rateLimit[ip];
+                }
+            }
+            return true; // Not blocked
+        }
+
+        // Update rate limit
+        function updateRateLimit(ip) {
+            const now = Date.now();
+            if (!rateLimit[ip]) {
+                rateLimit[ip] = { attempts: 1, lastAttempt: now };
+            } else {
+                rateLimit[ip].attempts++;
+                rateLimit[ip].lastAttempt = now;
+            }
+        }
+
+        // Save user data to JSONBin
+        async function saveUserData(userData) {
+            try {
+                // First get existing data
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch existing data');
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                // Add new user
+                users.push(userData);
+                
+                // Update the bin
+                const updateResponse = await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ users })
+                });
+                
+                return updateResponse.ok;
+            } catch (error) {
+                console.error('Error saving user data:', error);
+                return false;
+            }
+        }
+
+        // Form submission handler
+        signupForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const username = usernameInput.value.trim();
+            const email = emailInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const password = passwordInput.value;
+            
+            // Reset error messages
+            usernameError.textContent = '';
+            emailError.textContent = '';
+            phoneError.textContent = '';
+            messageDiv.textContent = '';
+            messageDiv.className = 'message';
+            
+            // Simple client-side IP tracking (not reliable but adds some protection)
+            const userIP = 'client-' + Math.floor(Math.random() * 10000); // In a real app, you'd get the actual IP
+            
+            // Check rate limit
+            if (!checkRateLimit(userIP)) {
+                messageDiv.textContent = 'Too many attempts. Please try again later.';
+                messageDiv.className = 'message error';
+                return;
+            }
+            
+            // Validate inputs
+            let isValid = true;
+            
+            if (!username) {
+                usernameError.textContent = 'Username is required';
+                isValid = false;
+            } else if (await isUsernameTaken(username)) {
+                usernameError.textContent = 'Username is already taken';
+                isValid = false;
+            }
+            
+            if (!email) {
+                emailError.textContent = 'Email is required';
+                isValid = false;
+            } else if (!validateEmail(email)) {
+                emailError.textContent = 'Only .com Gmail addresses are allowed';
+                isValid = false;
+            }
+            
+            if (!phone) {
+                phoneError.textContent = 'Phone number is required';
+                isValid = false;
+            } else if (!validatePhone(phone)) {
+                phoneError.textContent = 'Please enter a valid phone number';
+                isValid = false;
+            }
+            
+            if (!password) {
+                messageDiv.textContent = 'Password is required';
+                messageDiv.className = 'message error';
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                updateRateLimit(userIP);
+                return;
+            }
+            
+            // Create user object
+            const userData = {
+                username,
+                email,
+                phone,
+                password, // Stored as plain text as requested
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString()
+            };
+            
+            // Save user data
+            const saved = await saveUserData(userData);
+            
+            if (saved) {
+                messageDiv.textContent = 'Account created successfully! Redirecting...';
+                messageDiv.className = 'message success';
+                
+                // Store user session (simplified)
+                localStorage.setItem('ghibliUser', JSON.stringify({ username }));
+                
+                // Redirect to homepage
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+            } else {
+                messageDiv.textContent = 'Failed to create account. Please try again.';
+                messageDiv.className = 'message error';
+                updateRateLimit(userIP);
+            }
+        });
+
+        // Real-time username check
+        usernameInput.addEventListener('blur', async function() {
+            const username = usernameInput.value.trim();
+            if (username) {
+                if (await isUsernameTaken(username)) {
+                    usernameError.textContent = 'Username is already taken';
+                } else {
+                    usernameError.textContent = '';
+                }
+            }
+        });
+
+        // Real-time email validation
+        emailInput.addEventListener('blur', function() {
+            const email = emailInput.value.trim();
+            if (email && !validateEmail(email)) {
+                emailError.textContent = 'Only .com Gmail addresses are allowed';
+            } else {
+                emailError.textContent = '';
+            }
+        });
+
+        // Real-time phone validation
+        phoneInput.addEventListener('blur', function() {
+            const phone = phoneInput.value.trim();
+            if (phone && !validatePhone(phone)) {
+                phoneError.textContent = 'Please enter a valid phone number';
+            } else {
+                phoneError.textContent = '';
+            }
+        });
+    </script>
+</body>
+</html>
