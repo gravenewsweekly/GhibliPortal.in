@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You - GhibliPortal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">GhibliPortal</div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="about.html">About</a></li>
+                <li><a href="terms.html">Terms</a></li>
+                <li><a href="ghibli-now.html">Ghibli Now</a></li>
+                <li id="authLink"><a href="signup.html">Sign Up</a></li>
+                <li><a href="privacy.html">Privacy</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="thank-you-container">
+        <div id="paymentConfirmation">
+            <!-- Dynamic content will be inserted here -->
+        </div>
+        
+        <div class="support-info">
+            <h3>Need help with your account?</h3>
+            <p>Contact our Ghibli artist support team:</p>
+            <div class="contact-number">8103356828</div>
+            <p>Available 10AM - 6PM IST</p>
+        </div>
+    </main>
+
+    <script>
+        // JSONBin.io configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username');
+        const txnId = urlParams.get('txn');
+
+        // DOM elements
+        const authLink = document.getElementById('authLink');
+        const paymentConfirmation = document.getElementById('paymentConfirmation');
+
+        // Verify payment and show confirmation
+        async function verifyAndShowConfirmation() {
+            if (!username || !txnId) {
+                window.location.href = 'ghibli-now.html';
+                return;
+            }
+
+            try {
+                // Verify payment exists in database
+                const response = await fetch(API_URL + '/latest', {
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                const data = await response.json();
+                const user = data.record.users.find(u => u.username === username);
+                
+                const payment = user?.payments?.find(p => p.transactionId === txnId);
+                
+                if (!payment) {
+                    throw new Error('Payment not found');
+                }
+
+                // Show confirmation
+                paymentConfirmation.innerHTML = `
+                    <div class="payment-success">
+                        <div class="success-icon">✓</div>
+                        <h1>Thank You, ${username}!</h1>
+                        <p class="confirmation-message">Your payment of ₹5 has been verified successfully.</p>
+                        
+                        <div class="receipt">
+                            <h3>Payment Receipt</h3>
+                            <div class="receipt-details">
+                                <div class="receipt-row">
+                                    <span>Date:</span>
+                                    <span>${new Date(payment.date).toLocaleString()}</span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Transaction ID:</span>
+                                    <span>${txnId}</span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Amount:</span>
+                                    <span>₹${payment.amount}</span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Status:</span>
+                                    <span class="status-completed">Verified</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <a href="ghibli-now.html" class="access-btn">Access Ghibli Now</a>
+                    </div>
+                `;
+
+                // Update navigation
+                authLink.innerHTML = `<a href="javascript:void(0)" id="usernameLink">${username}</a>`;
+                document.getElementById('usernameLink').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('userDropdown').style.display = 'block';
+                });
+
+            } catch (error) {
+                console.error('Payment verification failed:', error);
+                paymentConfirmation.innerHTML = `
+                    <div class="payment-error">
+                        <h2>Payment Verification Failed</h2>
+                        <p>We couldn't verify your payment. Please try again or contact support at 8103356828.</p>
+                        <a href="ghibli-now.html" class="retry-btn">Try Again</a>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            verifyAndShowConfirmation();
+            
+            if (document.getElementById('logoutBtn')) {
+                document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    localStorage.removeItem('ghibliUser');
+                    window.location.href = 'login.html';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
