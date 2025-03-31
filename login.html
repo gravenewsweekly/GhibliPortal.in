@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - GhibliPortal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1>GhibliPortal Login</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit">Login</button>
+            <p id="message"></p>
+        </form>
+        <p>Don't have an account? <a href="signup.html">Sign up</a></p>
+    </div>
+
+    <script>
+        // JSONBin configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // Check if already logged in
+        if (localStorage.getItem('ghibliUser')) {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const message = document.getElementById('message');
+            
+            message.textContent = 'Logging in...';
+            message.className = 'info';
+
+            try {
+                // Fetch user data from JSONBin
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch data');
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                const user = users.find(u => u.username === username);
+                
+                if (!user) {
+                    message.textContent = 'Username not found';
+                    message.className = 'error';
+                    return;
+                }
+                
+                // Compare plain text passwords (as requested)
+                if (user.password !== password) {
+                    message.textContent = 'Incorrect password';
+                    message.className = 'error';
+                    return;
+                }
+                
+                // Store user session
+                localStorage.setItem('ghibliUser', JSON.stringify({
+                    username: user.username,
+                    lastLogin: new Date().toISOString()
+                }));
+                
+                message.textContent = 'Login successful! Redirecting...';
+                message.className = 'success';
+                
+                // Redirect to index.html after 1 second
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                message.textContent = 'Login failed. Please try again.';
+                message.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>
