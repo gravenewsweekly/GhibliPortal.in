@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GhibliPortal - Your Gateway to Studio Ghibli Magic</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">GhibliPortal</div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="about.html">About</a></li>
+                <li><a href="terms.html">Terms</a></li>
+                <li class="ghibli-now"><a href="ghibli-now.html">Ghibli Now</a></li>
+                <li id="authLink"><a href="signup.html">Sign Up</a></li>
+                <li><a href="privacy.html">Privacy</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <section class="hero">
+            <h1>Welcome to GhibliPortal</h1>
+            <p class="description">Your ultimate gateway to the magical world of Studio Ghibli. Explore exclusive content, high-quality images, behind-the-scenes footage, and connect with fellow Ghibli enthusiasts from around the world.</p>
+            
+            <div id="userGreeting" class="user-greeting">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            
+            <div class="cta-buttons">
+                <a href="ghibli-now.html" class="btn primary">Explore Ghibli Now</a>
+                <a href="discover.html" class="btn secondary">Discover Films</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="userDropdown" class="dropdown-content">
+        <a href="edit-profile.html">Edit Profile</a>
+        <a href="login.html" id="logoutBtn">Log Out</a>
+    </div>
+
+    <script>
+        // JSONBin.io configuration
+        const API_KEY = '$2a$10$Y62ExuUXpT2APANhGXW1YO2xpdv9WLj/TAlC.dq6/vOQVIciudIXm';
+        const BIN_ID = '67ea53278960c979a57b9f4f';
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // DOM elements
+        const authLink = document.getElementById('authLink');
+        const userGreeting = document.getElementById('userGreeting');
+        const userDropdown = document.getElementById('userDropdown');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Check if user is logged in
+        function checkUserSession() {
+            const userData = localStorage.getItem('ghibliUser');
+            if (userData) {
+                const user = JSON.parse(userData);
+                updateUIForLoggedInUser(user.username);
+            } else {
+                showGuestMessage();
+            }
+        }
+
+        // Update UI for logged in user
+        function updateUIForLoggedInUser(username) {
+            // Change signup link to username dropdown
+            authLink.innerHTML = `
+                <a href="javascript:void(0)" id="usernameLink">${username}</a>
+            `;
+            
+            // Add click handler for username dropdown
+            document.getElementById('usernameLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
+            });
+            
+            // Update greeting
+            userGreeting.innerHTML = `
+                <p class="welcome-message">Thank you ${username} for joining us! Enjoy exclusive Ghibli content.</p>
+            `;
+        }
+
+        // Show message for guests
+        function showGuestMessage() {
+            userGreeting.innerHTML = `
+                <p class="guest-message blink">Hey guest! Please create an account to get your Ghibli images fast.</p>
+            `;
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('ghibliUser');
+            window.location.href = 'login.html';
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(event) {
+            if (!event.target.matches('#usernameLink')) {
+                if (userDropdown.style.display === 'block') {
+                    userDropdown.style.display = 'none';
+                }
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkUserSession();
+            
+            // Set up logout button if it exists
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    logout();
+                });
+            }
+        });
+
+        // Verify user account exists in database (extra security)
+        async function verifyUserAccount(username) {
+            try {
+                const response = await fetch(API_URL + '/latest', {
+                    headers: {
+                        'X-Master-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch user data');
+                
+                const data = await response.json();
+                const users = data.record.users || [];
+                
+                return users.some(user => user.username === username);
+            } catch (error) {
+                console.error('Error verifying user:', error);
+                return false;
+            }
+        }
+
+        // Additional security - verify the user in localStorage actually exists
+        document.addEventListener('DOMContentLoaded', async function() {
+            const userData = localStorage.getItem('ghibliUser');
+            if (userData) {
+                const user = JSON.parse(userData);
+                const userExists = await verifyUserAccount(user.username);
+                if (!userExists) {
+                    localStorage.removeItem('ghibliUser');
+                    showGuestMessage();
+                    authLink.innerHTML = '<a href="signup.html">Sign Up</a>';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
